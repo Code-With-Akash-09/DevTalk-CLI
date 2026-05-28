@@ -115,7 +115,45 @@ jobs:
           if [[ -z "${{ secrets.NPM_TOKEN }}" ]]; then
             echo "Warning: NPM_TOKEN secret is empty. Publishing will fail if token is missing."
           fi
+          # Write token to the user's .npmrc
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+          # If the runner has set NPM_CONFIG_USERCONFIG, write there too (actions/setup-node may use a temp file)
+          if [[ -n "${NPM_CONFIG_USERCONFIG:-}" ]]; then
+            echo "Writing token to NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
+            echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > "$NPM_CONFIG_USERCONFIG"
+          fi
+
+          # Also set npm config explicitly to be safe
+          npm config set //registry.npmjs.org/:_authToken "${{ secrets.NPM_TOKEN }}"
+
+      - name: Verify npm token and package ownership
+        run: |
+          set -o pipefail
+          echo "Checking npm authentication..."
+          WHOAMI=$(npm whoami 2>/dev/null || true)
+          if [[ -z "$WHOAMI" ]]; then
+            echo "ERROR: npm authentication failed. NPM_TOKEN may be missing or invalid." >&2
+            npm whoami || true
+            exit 1
+          fi
+          echo "Authenticated as: $WHOAMI"
+
+          echo "Checking package owners for 'devtalk-cli'..."
+          OWNERS=$(npm owner ls devtalk-cli 2>/dev/null || true)
+          if [[ -z "$OWNERS" ]]; then
+            echo "ERROR: Could not list owners for package 'devtalk-cli'. The package may not exist or you lack permissions." >&2
+            npm owner ls devtalk-cli || true
+            exit 1
+          fi
+          echo "$OWNERS"
+
+          if ! echo "$OWNERS" | grep -q "^$WHOAMI$"; then
+            echo "ERROR: token user '$WHOAMI' is not listed as an owner of 'devtalk-cli'." >&2
+            echo "Ask a package owner to run: npm owner add $WHOAMI devtalk-cli" >&2
+            exit 1
+          fi
+          echo "Ownership verified: $WHOAMI is an owner of devtalk-cli"
 
       - name: Publish to npm
         run: npm publish --access public
