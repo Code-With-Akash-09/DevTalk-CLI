@@ -37,8 +37,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Determine release type
+        id: release_type
+        shell: bash
+        run: |
+          RELEASE_TYPE="patch"
+          COMMIT_MESSAGE="${{ github.event.head_commit.message || '' }}"
+
+          if [[ "$COMMIT_MESSAGE" == *"BREAKING CHANGE"* || "$COMMIT_MESSAGE" == *"!"* ]]; then
+            RELEASE_TYPE="major"
+          elif [[ "$COMMIT_MESSAGE" == feat:* || "$COMMIT_MESSAGE" == *"feat("* ]]; then
+            RELEASE_TYPE="minor"
+          elif [[ "$COMMIT_MESSAGE" == refactor:* || "$COMMIT_MESSAGE" == *"refactor("* ]]; then
+            RELEASE_TYPE="patch"
+          elif [[ "$COMMIT_MESSAGE" == fix:* || "$COMMIT_MESSAGE" == *"fix("* ]]; then
+            RELEASE_TYPE="patch"
+          fi
+
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+
       - name: Bump version
-        run: npm version patch --no-git-tag-version
+        run: npm version "${{ steps.release_type.outputs.release_type }}" --no-git-tag-version
 
       - name: Publish to npm
         run: npm publish --access public
