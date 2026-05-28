@@ -43,7 +43,7 @@ export default async () => {
     screen.append(input)
 
     const socket = new WebSocket(
-        `ws://localhost:5001?token=${token}`
+        `ws://devtalk-cli.onrender.com?token=${token}`
     )
 
     socket.on("message", (data) => {

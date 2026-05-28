@@ -21,7 +21,7 @@ export default async () => {
 
     try {
         await axios.post(
-            "http://localhost:5001/v1/auth/register",
+            "http://devtalk-cli.onrender.com/v1/auth/register",
             answers
         )
 

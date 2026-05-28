@@ -22,7 +22,7 @@ export default async () => {
 
     try {
         const response = await axios.post(
-            "http://localhost:5001/v1/auth/login",
+            "http://devtalk-cli.onrender.com/v1/auth/login",
             answers
         )
 
