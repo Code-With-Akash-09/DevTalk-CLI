@@ -1,11 +1,12 @@
-import cors from 'cors'
-import "dotenv/config"
-import express from 'express'
-import http from 'http'
-import jwt from 'jsonwebtoken'
-import WebSocket, { WebSocketServer } from 'ws'
-import { getDb } from './config/collection.js'
-import authRouter from './routes/auth.js'
+const cors = require('cors')
+require('dotenv').config()
+const express = require('express')
+const http = require('http')
+const jwt = require('jsonwebtoken')
+const WebSocket = require('ws')
+const { WebSocketServer } = require('ws')
+const { getDb } = require('./config/collection')
+const authRouter = require('./routes/auth')
 
 const app = express()
 
@@ -78,3 +79,5 @@ function broadcast(data) {
 server.listen(process.env.PORT, () => {
     console.log(`Server running on port ${process.env.PORT}`)
 })
+
+module.exports = server

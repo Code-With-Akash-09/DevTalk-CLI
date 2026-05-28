@@ -1,11 +1,13 @@
-import clientPromise from "./db.js";
+const clientPromise = require('./db')
 
-export async function getDb() {
-    const client = await clientPromise;
-    return client.db("devtalk-cli");
+async function getDb() {
+    const client = await clientPromise
+    return client.db('devtalk-cli')
 }
 
-export async function userscoll() {
-    const db = await getDb();
-    return db.collection("users");
+async function userscoll() {
+    const db = await getDb()
+    return db.collection('users')
 }
+
+module.exports = { getDb, userscoll }

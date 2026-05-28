@@ -19,7 +19,6 @@
     ],
     "author": "Akash Lakade",
     "license": "MIT",
-    "type": "module",
     "dependencies": {
         "axios": "^1.16.1",
         "blessed": "^0.1.81",

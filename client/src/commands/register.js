@@ -1,31 +1,31 @@
-import axios from "axios"
-import chalk from "chalk"
-import inquirer from "inquirer"
+const axios = require('axios')
+const chalk = require('chalk')
+const inquirer = require('inquirer')
 
-export default async () => {
+module.exports = async () => {
     const answers = await inquirer.prompt([
         {
-            name: "username",
-            message: "Username:",
+            name: 'username',
+            message: 'Username:',
         },
         {
-            name: "email",
-            message: "Email:",
+            name: 'email',
+            message: 'Email:',
         },
         {
-            type: "password",
-            name: "password",
-            message: "Password:",
+            type: 'password',
+            name: 'password',
+            message: 'Password:',
         },
     ])
 
     try {
         await axios.post(
-            "http://devtalk-cli.onrender.com/v1/auth/register",
+            'http://devtalk-cli.onrender.com/v1/auth/register',
             answers
         )
 
-        console.log(chalk.green("Registration successful"))
+        console.log(chalk.green('Registration successful'))
     } catch (error) {
         console.log(chalk.red(error.response.data.message))
     }

@@ -1,16 +1,16 @@
-import blessed from "blessed"
-import Conf from "conf"
-import WebSocket from "ws"
+const blessed = require('blessed')
+const Conf = require('conf')
+const WebSocket = require('ws')
 
 const config = new Conf({
-    projectName: "devtalk-cli",
+    projectName: 'devtalk-cli',
 })
 
-export default async () => {
-    const token = config.get("token")
+module.exports = async () => {
+    const token = config.get('token')
     const screen = blessed.screen({
         smartCSR: true,
-        title: "DevTalk-CLI",
+        title: 'DevTalk-CLI',
     })
 
     const messages = blessed.box({

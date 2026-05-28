@@ -1,12 +1,12 @@
-import { MongoClient, ServerApiVersion } from "mongodb"
+const { MongoClient, ServerApiVersion } = require('mongodb')
 
 const uri = process.env.COMMUNITY_URI
-if (!uri) throw new Error("Missing COMMUNITY_URI in env")
+if (!uri) throw new Error('Missing COMMUNITY_URI in env')
 
 let client
 let clientPromise
 
-if (process.env.NODE_ENV === "development") {
+if (process.env.NODE_ENV === 'development') {
     if (!global._mongoClientPromise) {
         client = new MongoClient(uri, {
             serverApi: {
@@ -29,4 +29,4 @@ if (process.env.NODE_ENV === "development") {
     clientPromise = client.connect()
 }
 
-export default clientPromise
+module.exports = clientPromise

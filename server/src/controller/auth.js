@@ -1,6 +1,6 @@
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
-import { userscoll } from "../config/collection.js"
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const { userscoll } = require('../config/collection')
 
 const register = async (req, res) => {
     try {
@@ -87,5 +87,5 @@ const login = async (req, res) => {
     }
 }
 
-export { login, register }
+module.exports = { login, register }
 
