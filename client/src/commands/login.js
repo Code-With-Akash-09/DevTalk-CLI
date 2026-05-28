@@ -1,28 +1,37 @@
 const axios = require('axios')
-const chalk = require('chalk')
-const Conf = require('conf')
-const inquirer = require('inquirer')
+const chalkModule = require('chalk')
+const chalk = chalkModule && chalkModule.default ? chalkModule.default : chalkModule
+const ConfModule = require('conf')
+const Conf = ConfModule && ConfModule.default ? ConfModule.default : ConfModule
+const inquirerModule = require('inquirer')
+const inquirer = inquirerModule && inquirerModule.default ? inquirerModule.default : inquirerModule
 
 const config = new Conf({
     projectName: 'devtalk-cli',
 })
 
 module.exports = async () => {
-    const answers = await inquirer.prompt([
-        {
-            name: 'email',
-            message: 'Email:',
-        },
-        {
-            type: 'password',
-            name: 'password',
-            message: 'Password:',
-        },
-    ])
+    let answers
+    try {
+        answers = await inquirer.prompt([
+            {
+                name: 'email',
+                message: 'Email:',
+            },
+            {
+                type: 'password',
+                name: 'password',
+                message: 'Password:',
+            },
+        ])
+    } catch (err) {
+        console.log(chalk.red('\nPrompt cancelled'))
+        return
+    }
 
     try {
         const response = await axios.post(
-            'http://devtalk-cli.onrender.com/v1/auth/login',
+            'https://devtalk-cli.onrender.com/v1/auth/login',
             answers
         )
 
@@ -30,6 +39,6 @@ module.exports = async () => {
 
         console.log(chalk.green('Login successful'))
     } catch (error) {
-        console.log(chalk.red(error.response.data.message))
+        console.log(chalk.red(error.response?.data?.message || error.message))
     }
 }

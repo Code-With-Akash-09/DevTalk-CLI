@@ -1,32 +1,40 @@
 const axios = require('axios')
-const chalk = require('chalk')
-const inquirer = require('inquirer')
+const chalkModule = require('chalk')
+const chalk = chalkModule && chalkModule.default ? chalkModule.default : chalkModule
+const inquirerModule = require('inquirer')
+const inquirer = inquirerModule && inquirerModule.default ? inquirerModule.default : inquirerModule
 
 module.exports = async () => {
-    const answers = await inquirer.prompt([
-        {
-            name: 'username',
-            message: 'Username:',
-        },
-        {
-            name: 'email',
-            message: 'Email:',
-        },
-        {
-            type: 'password',
-            name: 'password',
-            message: 'Password:',
-        },
-    ])
+    let answers
+    try {
+        answers = await inquirer.prompt([
+            {
+                name: 'username',
+                message: 'Username:',
+            },
+            {
+                name: 'email',
+                message: 'Email:',
+            },
+            {
+                type: 'password',
+                name: 'password',
+                message: 'Password:',
+            },
+        ])
+    } catch (err) {
+        console.log(chalk.red('\nPrompt cancelled'))
+        return
+    }
 
     try {
         await axios.post(
-            'http://devtalk-cli.onrender.com/v1/auth/register',
+            'https://devtalk-cli.onrender.com/v1/auth/register',
             answers
         )
 
         console.log(chalk.green('Registration successful'))
     } catch (error) {
-        console.log(chalk.red(error.response.data.message))
+        console.log(chalk.red(error.response?.data?.message || error.message))
     }
 }

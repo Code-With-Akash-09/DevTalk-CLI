@@ -43,14 +43,26 @@ wss.on("connection", (ws, req) => {
             message: `${user.username} joined the chat`,
         })
 
-        ws.on("message", (message) => {
-            const parsed = JSON.parse(message)
+        console.log(`WS: ${user.username} connected from ${req.socket.remoteAddress}`)
 
-            broadcast({
-                type: "message",
-                username: user.username,
-                message: parsed.message,
-            })
+        ws.on("message", (message) => {
+            try {
+                const parsed = JSON.parse(message)
+
+                broadcast({
+                    type: "message",
+                    username: user.username,
+                    message: parsed.message,
+                })
+            } catch (err) {
+                console.error('WS message parse error for', user.username, err.message)
+                // notify the sender but do not close the socket
+                try {
+                    ws.send(JSON.stringify({ type: 'error', message: 'invalid message format' }))
+                } catch (sendErr) {
+                    console.error('Failed to send parse error to client', sendErr.message)
+                }
+            }
         })
 
         ws.on("close", () => {
@@ -60,6 +72,7 @@ wss.on("connection", (ws, req) => {
                 type: "system",
                 message: `${user.username} left the chat`,
             })
+            console.log(`WS: ${user.username} disconnected`)
         })
     } catch (error) {
         ws.close()
