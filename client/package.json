@@ -1,32 +1,30 @@
 {
-    "name": "devtalk-cli",
-    "version": "1.0.4",
-    "description": "Cross platform realtime terminal chat application",
-    "main": "./src/server.js",
-    "bin": {
-        "devtalk-cli": "src/server.js"
-    },
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "node src/server.js"
-    },
-    "keywords": [
-        "chat",
-        "terminal",
-        "cli",
-        "websocket",
-        "messaging"
-    ],
-    "author": "Akash Lakade",
-    "license": "MIT",
-    "dependencies": {
-        "axios": "^1.16.1",
-        "blessed": "^0.1.81",
-        "chalk": "^5.6.2",
-        "commander": "^14.0.3",
-        "inquirer": "^14.0.0",
-        "nodemon": "^3.1.14",
-        "ora": "^9.4.0",
-        "ws": "^8.21.0"
-    }
+	"name": "devtalk-cli",
+	"version": "1.0.5",
+	"description": "Cross platform realtime terminal chat application",
+	"main": "./src/server.js",
+	"bin": {
+		"devtalk-cli": "src/server.js"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"start": "node src/server.js"
+	},
+	"keywords": [
+		"chat",
+		"terminal",
+		"cli",
+		"websocket",
+		"messaging"
+	],
+	"author": "Akash Lakade",
+	"license": "MIT",
+	"dependencies": {
+		"axios": "^1.16.1",
+		"blessed": "^0.1.81",
+		"chalk": "^4.1.2",
+		"commander": "^14.0.3",
+		"inquirer": "^8.2.6",
+		"ws": "^8.21.0"
+	}
 }
