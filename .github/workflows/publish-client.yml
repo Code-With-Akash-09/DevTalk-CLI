@@ -7,30 +7,13 @@ on:
     paths:
       - client/**
       - .github/workflows/publish-client.yml
-  pull_request:
-    types: [closed]
-    branches:
-      - main
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Release type to publish'
-        required: false
-        default: 'auto'
-        type: choice
-        options:
-          - auto
-          - patch
-          - minor
-          - major
 
 jobs:
   publish:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
 
     defaults:
       run:
@@ -47,116 +30,20 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+          always-auth: true
           cache: npm
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Get PR release label
-        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
-        id: pr_label
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const labels = (context.payload.pull_request.labels || []).map(l => l.name);
-            const map = { 'release:major':'major', 'release:minor':'minor', 'release:patch':'patch', 'major':'major','minor':'minor','patch':'patch' };
-            for (const l of labels) {
-              if (map[l]) return map[l];
-            }
-            return ''
-
-      - name: Determine release type
-        id: release_type
-        shell: bash
-        run: |
-          RELEASE_TYPE="patch"
-
-          # 1) If PR provided a release label, use it
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            PR_LABEL="${{ steps.pr_label.outputs.result || '' }}"
-            if [[ -n "$PR_LABEL" ]]; then
-              RELEASE_TYPE="$PR_LABEL"
-              echo "Found PR label release type: $RELEASE_TYPE"
-              echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          # 2) If manually triggered with workflow_dispatch and explicit input, use it
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.release_type || 'auto' }}" != "auto" ]]; then
-            RELEASE_TYPE="${{ github.event.inputs.release_type || 'auto' }}"
-            echo "Using manual release_type: $RELEASE_TYPE"
-            echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # 3) Fallback to commit message heuristics
-          COMMIT_MESSAGE="${{ github.event.head_commit.message || '' }}"
-
-          if [[ "$COMMIT_MESSAGE" == *"BREAKING CHANGE"* || "$COMMIT_MESSAGE" == *"!"* ]]; then
-            RELEASE_TYPE="major"
-          elif [[ "$COMMIT_MESSAGE" == feat:* || "$COMMIT_MESSAGE" == *"feat("* ]]; then
-            RELEASE_TYPE="minor"
-          elif [[ "$COMMIT_MESSAGE" == refactor:* || "$COMMIT_MESSAGE" == *"refactor("* ]]; then
-            RELEASE_TYPE="patch"
-          elif [[ "$COMMIT_MESSAGE" == fix:* || "$COMMIT_MESSAGE" == *"fix("* ]]; then
-            RELEASE_TYPE="patch"
-          fi
-
-          echo "Determined release_type: $RELEASE_TYPE"
-          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
-
       - name: Bump version
-        run: npm version "${{ steps.release_type.outputs.release_type }}" --no-git-tag-version
-
-      - name: Configure npm auth
-        run: |
-          if [[ -z "${{ secrets.NPM_TOKEN }}" ]]; then
-            echo "Warning: NPM_TOKEN secret is empty. Publishing will fail if token is missing."
-          fi
-          # Write token to the user's .npmrc
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-          # If the runner has set NPM_CONFIG_USERCONFIG, write there too (actions/setup-node may use a temp file)
-          if [[ -n "${NPM_CONFIG_USERCONFIG:-}" ]]; then
-            echo "Writing token to NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
-            echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > "$NPM_CONFIG_USERCONFIG"
-          fi
-
-          # Also set npm config explicitly to be safe
-          npm config set //registry.npmjs.org/:_authToken "${{ secrets.NPM_TOKEN }}"
-
-      - name: Verify npm token and package ownership
-        run: |
-          set -o pipefail
-          echo "Checking npm authentication..."
-          WHOAMI=$(npm whoami 2>/dev/null || true)
-          if [[ -z "$WHOAMI" ]]; then
-            echo "ERROR: npm authentication failed. NPM_TOKEN may be missing or invalid." >&2
-            npm whoami || true
-            exit 1
-          fi
-          echo "Authenticated as: $WHOAMI"
-
-          echo "Checking package owners for 'devtalk-cli'..."
-          OWNERS=$(npm owner ls devtalk-cli 2>/dev/null || true)
-          if [[ -z "$OWNERS" ]]; then
-            echo "ERROR: Could not list owners for package 'devtalk-cli'. The package may not exist or you lack permissions." >&2
-            npm owner ls devtalk-cli || true
-            exit 1
-          fi
-          echo "$OWNERS"
-
-          if ! echo "$OWNERS" | grep -q "^$WHOAMI$"; then
-            echo "ERROR: token user '$WHOAMI' is not listed as an owner of 'devtalk-cli'." >&2
-            echo "Ask a package owner to run: npm owner add $WHOAMI devtalk-cli" >&2
-            exit 1
-          fi
-          echo "Ownership verified: $WHOAMI is an owner of devtalk-cli"
+        run: npm version patch --no-git-tag-version
 
       - name: Publish to npm
         run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Commit version bump
         run: |
