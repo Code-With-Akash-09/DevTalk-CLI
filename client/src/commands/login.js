@@ -4,7 +4,7 @@ import Conf from "conf"
 import inquirer from "inquirer"
 
 const config = new Conf({
-    projectName: "devchat",
+    projectName: "devtalk-cli",
 })
 
 export default async () => {

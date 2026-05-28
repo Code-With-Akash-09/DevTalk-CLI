@@ -5,7 +5,7 @@ import register from './commands/register.js'
 
 const program = new Command()
 
-program.name("devchat")
+program.name("devtalk-cli")
 
 program.command("register").action(register)
 program.command("login").action(login)

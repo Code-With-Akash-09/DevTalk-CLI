@@ -3,14 +3,14 @@ import Conf from "conf"
 import WebSocket from "ws"
 
 const config = new Conf({
-    projectName: "devchat",
+    projectName: "devtalk-cli",
 })
 
 export default async () => {
     const token = config.get("token")
     const screen = blessed.screen({
         smartCSR: true,
-        title: "DevChat",
+        title: "DevTalk-CLI",
     })
 
     const messages = blessed.box({
