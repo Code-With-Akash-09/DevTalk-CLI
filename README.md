@@ -31,6 +31,19 @@ Required repository setup
 - Add `NPM_TOKEN` to repository Secrets (Repository Settings → Secrets). This token must be an npm automation or granular token with publish permission for the `devtalk-cli` package.
 - Ensure GitHub Actions are enabled on the repo and the workflow file is at `.github/workflows/publish-client.yml`.
 
+Important: do NOT create `GITHUB_` secrets
+
+- GitHub reserves secret names that start with `GITHUB_`. Do not create a repository secret named `GITHUB_TOKEN` (or any name starting with `GITHUB_`) — the UI will reject it and it can break workflow expectations.
+- If you accidentally created a similarly-named secret or want to confirm there isn't one, remove it via the UI: Repository → Settings → Secrets and variables → Actions → delete the secret.
+- Or with the GitHub CLI locally (requires `gh auth login`):
+
+```bash
+gh secret list
+gh secret delete NAME      # e.g. gh secret delete GITHUB_TOKEN (if it exists)
+```
+
+Only add the `NPM_TOKEN` secret for publishing; the workflow uses the built-in `secrets.GITHUB_TOKEN` provided by Actions automatically (do not add it yourself).
+
 How the workflow decides version bumps
 
 - The workflow reads the pushed commit message and maps it to a release type:
