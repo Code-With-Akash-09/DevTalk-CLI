@@ -1,14 +1,9 @@
 const axios = require('axios')
 const chalkModule = require('chalk')
 const chalk = chalkModule && chalkModule.default ? chalkModule.default : chalkModule
-const ConfModule = require('conf')
-const Conf = ConfModule && ConfModule.default ? ConfModule.default : ConfModule
 const inquirerModule = require('inquirer')
 const inquirer = inquirerModule && inquirerModule.default ? inquirerModule.default : inquirerModule
-
-const config = new Conf({
-    projectName: 'devtalk-cli',
-})
+const config = require('../config/store')
 
 module.exports = async () => {
     let answers
