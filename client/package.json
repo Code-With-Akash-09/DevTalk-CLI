@@ -1,7 +1,7 @@
 {
-    "name": "client",
+    "name": "devtalk-cli",
     "version": "1.0.0",
-    "description": "",
+    "description": "Cross platform realtime terminal chat application",
     "main": "./src/server.js",
     "bin": {
         "devtalk-cli": "src/server.js"
@@ -10,9 +10,15 @@
         "test": "echo \"Error: no test specified\" && exit 1",
         "start": "node src/server.js"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
+    "keywords": [
+        "chat",
+        "terminal",
+        "cli",
+        "websocket",
+        "messaging"
+    ],
+    "author": "Akash Lakade",
+    "license": "MIT",
     "type": "module",
     "dependencies": {
         "axios": "^1.16.1",
