@@ -1,0 +1,124 @@
+name: Publish DevTalk CLI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - client/**
+      - .github/workflows/publish-client.yml
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type to publish'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+jobs:
+  publish:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get PR release label
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true }}
+        id: pr_label
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const labels = (context.payload.pull_request.labels || []).map(l => l.name);
+            const map = { 'release:major':'major', 'release:minor':'minor', 'release:patch':'patch', 'major':'major','minor':'minor','patch':'patch' };
+            for (const l of labels) {
+              if (map[l]) return map[l];
+            }
+            return ''
+
+      - name: Determine release type
+        id: release_type
+        shell: bash
+        run: |
+          RELEASE_TYPE="patch"
+
+          # 1) If PR provided a release label, use it
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            PR_LABEL="${{ steps.pr_label.outputs.result || '' }}"
+            if [[ -n "$PR_LABEL" ]]; then
+              RELEASE_TYPE="$PR_LABEL"
+              echo "Found PR label release type: $RELEASE_TYPE"
+              echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # 2) If manually triggered with workflow_dispatch and explicit input, use it
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.release_type || 'auto' }}" != "auto" ]]; then
+            RELEASE_TYPE="${{ github.event.inputs.release_type || 'auto' }}"
+            echo "Using manual release_type: $RELEASE_TYPE"
+            echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 3) Fallback to commit message heuristics
+          COMMIT_MESSAGE="${{ github.event.head_commit.message || '' }}"
+
+          if [[ "$COMMIT_MESSAGE" == *"BREAKING CHANGE"* || "$COMMIT_MESSAGE" == *"!"* ]]; then
+            RELEASE_TYPE="major"
+          elif [[ "$COMMIT_MESSAGE" == feat:* || "$COMMIT_MESSAGE" == *"feat("* ]]; then
+            RELEASE_TYPE="minor"
+          elif [[ "$COMMIT_MESSAGE" == refactor:* || "$COMMIT_MESSAGE" == *"refactor("* ]]; then
+            RELEASE_TYPE="patch"
+          elif [[ "$COMMIT_MESSAGE" == fix:* || "$COMMIT_MESSAGE" == *"fix("* ]]; then
+            RELEASE_TYPE="patch"
+          fi
+
+          echo "Determined release_type: $RELEASE_TYPE"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version
+        run: npm version "${{ steps.release_type.outputs.release_type }}" --no-git-tag-version
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump client version [skip ci]"
+          git push

@@ -6,9 +6,19 @@
 	"bin": {
 		"devtalk-cli": "src/server.js"
 	},
+	"files": [
+		"src"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"start": "node src/server.js"
+		"start": "node src/server.js",
+		"release": "gh workflow run \"Publish DevTalk CLI\" -f release_type=auto",
+		"release:patch": "gh workflow run \"Publish DevTalk CLI\" -f release_type=patch",
+		"release:minor": "gh workflow run \"Publish DevTalk CLI\" -f release_type=minor",
+		"release:major": "gh workflow run \"Publish DevTalk CLI\" -f release_type=major"
 	},
 	"keywords": [
 		"chat",
