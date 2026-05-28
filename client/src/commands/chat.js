@@ -1,13 +1,8 @@
 const blessed = require('blessed')
-const ConfModule = require('conf')
-const Conf = ConfModule && ConfModule.default ? ConfModule.default : ConfModule
 const WebSocket = require('ws')
 const chalkModule = require('chalk')
 const chalk = chalkModule && chalkModule.default ? chalkModule.default : chalkModule
-
-const config = new Conf({
-    projectName: 'devtalk-cli',
-})
+const config = require('../config/store')
 
 module.exports = async () => {
     const token = config.get('token')
