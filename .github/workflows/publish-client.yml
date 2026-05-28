@@ -71,3 +71,27 @@ jobs:
           git add package.json package-lock.json
           git commit -m "chore(release): bump client version [skip ci]"
           git push
+
+      - name: get_version
+        id: get_version
+        run: |
+          echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Tag release and create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.AUTH_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG=v${VERSION}
+          echo "Creating tag $TAG"
+          git tag $TAG
+          git push origin $TAG
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: devtalk-cli v${{ steps.get_version.outputs.version }}
+          body: Automated release from CI for version ${{ steps.get_version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.AUTH_TOKEN }}

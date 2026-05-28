@@ -11,24 +11,64 @@ This repository contains two packages: the CLI client (`client/`) and the server
 
 **Release overview**
 
-- The GitHub Actions workflow `Publish DevTalk CLI` automatically publishes the `devtalk-cli` package from `client/` to npm.
-- It runs only when code is pushed to `main`.
-- Every eligible push creates a patch release, publishes to npm, and commits the version bump back to `main` with `[skip ci]` so the release commit does not retrigger the workflow.
 
 
-**Release rule**
-- `main` push → patch release only.
 - No PR labels, manual workflow inputs, or GitHub CLI release commands are used anymore.
 
-Required repository setup
-- Add `NPM_TOKEN` to repository Secrets (Repository Settings → Secrets). This token must be an npm automation token or a token with publish access for the `devtalk-cli` package.
 - Ensure GitHub Actions are enabled on the repo and that the workflow file exists at `.github/workflows/publish-client.yml`.
 
-How the workflow behaves
 - When a release is triggered it will:
   1. Install dependencies inside `client/`.
   2. Run `npm version patch --no-git-tag-version` in `client/`.
   4. Publish to npm with `npm publish --access public` (using `NPM_TOKEN`).
+**Release overview**
+
+- The GitHub Actions workflow `Publish DevTalk CLI` automatically publishes the `devtalk-cli` package from `client/` to npm whenever code is pushed to `main`.
+- The workflow decides the version bump (patch, minor, major) from the pushed commit message, then runs `npm version` and publishes.
+
+Required repository setup
+
+- Add `NPM_TOKEN` to repository Secrets (Repository Settings → Secrets). This token must be an npm automation or granular token with publish permission for the `devtalk-cli` package.
+- Ensure GitHub Actions are enabled on the repo and the workflow file is at `.github/workflows/publish-client.yml`.
+
+How the workflow decides version bumps
+
+- The workflow reads the pushed commit message and maps it to a release type:
+  - `BREAKING CHANGE` in the message body or `!` in the subject → major
+  - commit subject starting with `feat:` or `feat(` → minor
+  - commit subject starting with `fix:` or `refactor:` (or other non-feature fixes) → patch
+  - anything else → patch
+
+Examples (commit messages)
+
+- Patch (bugfix or refactor):
+
+```
+git commit -m "fix: correct login retry handling"
+git push origin main
+```
+
+- Minor (new feature):
+
+```
+git commit -m "feat: add chat typing indicator"
+git push origin main
+```
+
+- Major (breaking change):
+
+```
+git commit -m "feat!: change message format to v2"
+# or include a BREAKING CHANGE in the commit body
+git push origin main
+```
+
+What the workflow does on `main` push
+
+1. Install dependencies inside `client/`.
+2. Run `npm version <patch|minor|major> --no-git-tag-version` based on the commit message.
+3. Publish to npm with `npm publish --access public` (using `NPM_TOKEN`).
+4. Commit updated `package.json` and `package-lock.json` back to `main` with message `chore(release): bump client version [skip ci]`.
   5. Commit the updated `package.json` and `package-lock.json` back to `main` with message `chore(release): bump client version [skip ci]`.
 
 Commands — quick reference
