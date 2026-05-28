@@ -1,6 +1,6 @@
 {
 	"name": "devtalk-cli",
-	"version": "1.0.7",
+	"version": "1.0.8",
 	"description": "Cross platform realtime terminal chat application",
 	"main": "./src/server.js",
 	"bin": {
