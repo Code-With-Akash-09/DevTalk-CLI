@@ -1,0 +1,9 @@
+services:
+    - type: cron
+      name: devtalk-cli-keepalive
+      runtime: node
+      plan: starter
+      schedule: "*/5 * * * *"
+      rootDir: server
+      buildCommand: npm install
+      command: 'curl -fsS https://devtalk-cli.onrender.com/health >/dev/null'
