@@ -28,37 +28,6 @@ const server = http.createServer(app)
 const wss = new WebSocketServer({ server })
 
 const clients = new Map()
-const typingState = new Map()
-
-function getPresenceSnapshot() {
-    const onlineUsers = Array.from(
-        new Set(
-            Array.from(clients.values())
-                .map((user) => user.username)
-                .filter(Boolean),
-        ),
-    ).sort((left, right) => left.localeCompare(right))
-
-    const typingUsers = Array.from(
-        new Set(
-            Array.from(typingState.entries())
-                .filter(([client, isTyping]) => isTyping && clients.has(client))
-                .map(([client]) => clients.get(client)?.username)
-                .filter(Boolean),
-        ),
-    ).sort((left, right) => left.localeCompare(right))
-
-    return {
-        type: 'presence',
-        onlineUsers,
-        onlineCount: onlineUsers.length,
-        typingUsers,
-    }
-}
-
-function broadcastPresence() {
-    broadcast(getPresenceSnapshot())
-}
 
 wss.on("connection", (ws, req) => {
     const params = new URLSearchParams(req.url.replace("/?", ""))
@@ -68,13 +37,11 @@ wss.on("connection", (ws, req) => {
     try {
         const user = jwt.verify(token, process.env.JWT_SECRET)
         clients.set(ws, user)
-        typingState.set(ws, false)
 
         broadcast({
             type: "system",
             message: `${user.username} joined the chat`,
         })
-        broadcastPresence()
 
         console.log(`WS: ${user.username} connected from ${req.socket.remoteAddress}`)
 
@@ -82,40 +49,11 @@ wss.on("connection", (ws, req) => {
             try {
                 const parsed = JSON.parse(message)
 
-                if (parsed.type === 'typing') {
-                    const nextTypingState = Boolean(parsed.active)
-                    const currentTypingState = Boolean(typingState.get(ws))
-
-                    if (currentTypingState !== nextTypingState) {
-                        typingState.set(ws, nextTypingState)
-                        broadcastPresence()
-                    }
-
-                    return
-                }
-
-                const message = String(parsed.message || "").trim()
-
-                if (!message) {
-                    try {
-                        ws.send(JSON.stringify({ type: 'error', message: 'empty messages are not allowed' }))
-                    } catch (sendErr) {
-                        console.error('Failed to send empty-message error to client', sendErr.message)
-                    }
-
-                    return
-                }
-
                 broadcast({
                     type: "message",
                     username: user.username,
-                    message,
+                    message: parsed.message,
                 })
-
-                if (typingState.get(ws)) {
-                    typingState.set(ws, false)
-                    broadcastPresence()
-                }
             } catch (err) {
                 console.error('WS message parse error for', user.username, err.message)
                 // notify the sender but do not close the socket
@@ -129,13 +67,11 @@ wss.on("connection", (ws, req) => {
 
         ws.on("close", () => {
             clients.delete(ws)
-            typingState.delete(ws)
 
             broadcast({
                 type: "system",
                 message: `${user.username} left the chat`,
             })
-            broadcastPresence()
             console.log(`WS: ${user.username} disconnected`)
         })
     } catch (error) {
