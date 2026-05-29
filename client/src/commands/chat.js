@@ -140,7 +140,7 @@ module.exports = async () => {
 		top: 3,
 		left: 0,
 		width: "100%",
-		height: "100%-8",
+		bottom: 7,
 		border: {
 			type: "line",
 		},
@@ -163,7 +163,7 @@ module.exports = async () => {
 		bottom: 3,
 		left: 0,
 		width: "100%",
-		height: 5,
+		height: 4,
 		border: {
 			type: "line",
 		},
@@ -183,6 +183,8 @@ module.exports = async () => {
 			},
 		},
 	});
+
+	const PLACEHOLDER = "{gray-fg}enter your message here{/gray-fg}";
 
 	const status = blessed.box({
 		bottom: 0,
@@ -256,6 +258,7 @@ module.exports = async () => {
 
 	const appendLine = (content) => {
 		messages.log(content);
+		messages.setScrollPerc(100);
 		screen.render();
 	};
 
@@ -272,10 +275,12 @@ module.exports = async () => {
 				index === 0 ? `${prefix}${line}` : `${indent}${line}`;
 			if (color) {
 				messages.pushLine(`{${color}}${renderedLine}{/${color}}`);
+				messages.setScrollPerc(100);
 				return;
 			}
 
 			messages.pushLine(renderedLine);
+			messages.setScrollPerc(100);
 		});
 
 		screen.render();
@@ -406,11 +411,7 @@ module.exports = async () => {
 		setTimeout(() => process.exit(exitCode), 150);
 	};
 
-	appendLine(
-		"{center}{bold}{cyan-fg}Welcome to DevTalk-CLI{/cyan-fg}{/bold}{/center}",
-	);
-	appendLine("{center}{gray-fg}Waiting for connection...{/gray-fg}{/center}");
-	input.setValue(config.get(draftKey) || "");
+	input.setValue(config.get(draftKey) || PLACEHOLDER);
 	screen.render();
 	connect();
 
@@ -426,9 +427,10 @@ module.exports = async () => {
 	process.on("SIGINT", () => cleanup(0));
 
 	input.on("submit", (value) => {
-		const text = String(value || "").trim();
+		const raw = String(value || "");
+		const text = stripTags(raw).trim();
 
-		if (!text) {
+		if (!text || text === "enter your message here") {
 			input.clearValue();
 			focusInput();
 			return;
@@ -455,8 +457,23 @@ module.exports = async () => {
 		focusInput();
 	});
 
-	input.on("keypress", () => {
+	input.on("keypress", (ch, key) => {
+		const val = String(input.getValue() || "");
+		if (stripTags(val).trim() === "enter your message here") {
+			input.clearValue();
+			screen.render();
+			return;
+		}
+
 		scheduleDraftSave();
+	});
+
+	input.on("blur", () => {
+		const val = String(input.getValue() || "");
+		if (!stripTags(val).trim()) {
+			input.setValue(config.get(draftKey) || PLACEHOLDER);
+			screen.render();
+		}
 	});
 
 	focusInput();
