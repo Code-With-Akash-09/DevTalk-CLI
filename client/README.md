@@ -1,30 +1,35 @@
 # devtalk-cli
 
-Cross-platform realtime terminal chat CLI.
+> Cross-platform realtime terminal chat CLI.
 
-Install
+## Install
 
 Install globally to use the `devtalk-cli` command:
 
 ```bash
 npm install -g devtalk-cli
-# or with npx (no install):
+```
+
+Or run it instantly with `npx`:
+
+```bash
 npx devtalk-cli register
 ```
 
-Requirements
+## Requirements
 
-- Node.js 16+ and npm
+- Node.js 16+
+- npm
 
-Usage
+## Usage
 
-Commands:
+| Command | Description |
+| --- | --- |
+| `devtalk-cli register` | Register a new user |
+| `devtalk-cli login` | Log in with an existing account |
+| `devtalk-cli chat` | Start the chat client |
 
-- `devtalk-cli register` — register a new user
-- `devtalk-cli login` — log in with an existing account
-- `devtalk-cli chat` — start the chat client
-
-Examples
+## Examples
 
 ```bash
 # Register a new user
@@ -37,22 +42,24 @@ devtalk-cli login
 devtalk-cli chat
 ```
 
-Auto-update hint
+## Updates
 
-On start the CLI checks the npm registry for newer versions. To upgrade:
+On start, the CLI checks the npm registry for newer versions. To upgrade:
 
 ```bash
 npm install -g devtalk-cli
 ```
 
-Repository
+## Repository
 
 This package is part of the DevTalk CLI monorepo. See the repository root for the server and contributing guidelines.
 
 - CLI entry: [src/server.js](src/server.js)
 
-License
+## License
 
-MIT — see parent repository `LICENSE` file.
+MIT — see the parent repository `LICENSE` file.
 
-Author: Akash Lakade
+## Author
+
+Akash Lakade

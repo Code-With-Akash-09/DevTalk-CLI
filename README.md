@@ -98,7 +98,7 @@ Useful links
 
 License
 
-This project is open source. See the `LICENSE` file if present.
+This project is open source. See [LICENSE](LICENSE) for the full license text.
 
 ```
 
