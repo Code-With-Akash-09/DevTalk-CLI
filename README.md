@@ -19,128 +19,105 @@ This repository contains two packages: the CLI client (`client/`) and the server
 
 - When a release is triggered it will:
   1. Install dependencies inside `client/`.
-  2. Run `npm version patch --no-git-tag-version` in `client/`.
-  4. Publish to npm with `npm publish --access public` (using `NPM_TOKEN`).
-**Release overview**
+  # DevTalk CLI
 
-- The GitHub Actions workflow `Publish DevTalk CLI` automatically publishes the `devtalk-cli` package from `client/` to npm whenever code is pushed to `main`.
-- The workflow decides the version bump (patch, minor, major) from the pushed commit message, then runs `npm version` and publishes.
+  DevTalk CLI includes two packages: the CLI client (`client/`) and the server (`server/`). This README covers quick start, running locally, and the automated release/version flow.
 
-Required repository setup
+  Quick start
 
-- Add `NPM_TOKEN` to repository Secrets (Repository Settings → Secrets). This token must be an npm automation or granular token with publish permission for the `devtalk-cli` package.
-- Ensure GitHub Actions are enabled on the repo and the workflow file is at `.github/workflows/publish-client.yml`.
+  - Requirements: Node.js 16+ and npm.
+  - Install dependencies:
 
-Important: do NOT create `GITHUB_` secrets
+    ```bash
+    cd client
+    npm install
 
-- GitHub reserves secret names that start with `GITHUB_`. Do not create a repository secret named `GITHUB_TOKEN` (or any name starting with `GITHUB_`) — the UI will reject it and it can break workflow expectations.
-- If you accidentally created a similarly-named secret or want to confirm there isn't one, remove it via the UI: Repository → Settings → Secrets and variables → Actions → delete the secret.
-- Or with the GitHub CLI locally (requires `gh auth login`):
+    cd ../server
+    npm install
+    ```
 
-```bash
-gh secret list
-gh secret delete NAME      # e.g. gh secret delete GITHUB_TOKEN (if it exists)
-```
+  Running locally
 
-Only add the `NPM_TOKEN` secret for publishing; the workflow uses the built-in `secrets.GITHUB_TOKEN` provided by Actions automatically (do not add it yourself).
+  - Start the server:
 
-How the workflow decides version bumps
+    ```bash
+    cd server
+    npm start
+    ```
 
-- The workflow reads the pushed commit message and maps it to a release type:
-  - `BREAKING CHANGE` in the message body or `!` in the subject → major
-  - commit subject starting with `feat:` or `feat(` → minor
-  - commit subject starting with `fix:` or `refactor:` (or other non-feature fixes) → patch
-  - anything else → patch
+  - Start the CLI (client):
 
-Examples (commit messages)
+    ```bash
+    cd client
+    npm start
+    # or: node src/server.js
+    ```
 
-- Patch (bugfix or refactor):
+  Release & Versioning (automated)
 
-```
-git commit -m "fix: correct login retry handling"
-git push origin main
-```
+  - Trigger: pushes to `main` affecting `client/**` or the workflow file trigger the `Publish DevTalk CLI` workflow.
+  - Skip CI: commits containing `[skip ci]` are ignored by the workflow.
+  - How the release type is chosen (from the pushed commit message):
+    - `BREAKING CHANGE` in the body or a `!` in the subject → `major`
+    - subject starting with `feat:` or `feat(` → `minor`
+    - subject starting with `fix:`, `refactor:` or other non-feature fixes → `patch`
+    - default → `patch`
+  - Workflow steps (summary):
+    1. Checkout and set up Node (uses Node 20, working directory: `client/`).
+    2. Install dependencies (`npm ci`).
+    3. Determine release type from the commit message.
+    4. Run `npm version <patch|minor|major> --no-git-tag-version` in `client/`.
+    5. Publish to npm (`npm publish --access public`) using `NODE_AUTH_TOKEN` from the `NPM_TOKEN` repository secret.
+    6. Commit `package.json` and `package-lock.json` with message `chore(release): bump client version [skip ci]` and push back to `main`.
+    7. Tag the release as `v<version>` and push the tag.
+    8. Create a GitHub release using the tag.
 
-- Minor (new feature):
+  Requirements
 
-```
-git commit -m "feat: add chat typing indicator"
-git push origin main
-```
+  - Add `NPM_TOKEN` to repository Secrets (Repository Settings → Secrets → Actions). This must be an npm token with publish permission for the `devtalk-cli` package.
+  - Do not create repository secrets that begin with `GITHUB_`. The workflow uses the built-in `secrets.GITHUB_TOKEN` provided by Actions.
 
-- Major (breaking change):
+  Examples (commit messages)
 
-```
-git commit -m "feat!: change message format to v2"
-# or include a BREAKING CHANGE in the commit body
-git push origin main
-```
+  - Patch (bugfix):
 
-What the workflow does on `main` push
+    ```bash
+    git commit -m "fix: correct login retry handling"
+    git push origin main
+    ```
 
-1. Install dependencies inside `client/`.
-2. Run `npm version <patch|minor|major> --no-git-tag-version` based on the commit message.
-3. Publish to npm with `npm publish --access public` (using `NPM_TOKEN`).
-4. Commit updated `package.json` and `package-lock.json` back to `main` with message `chore(release): bump client version [skip ci]`.
-  5. Commit the updated `package.json` and `package-lock.json` back to `main` with message `chore(release): bump client version [skip ci]`.
+  - Minor (feature):
 
-Commands — quick reference
+    ```bash
+    git commit -m "feat: add chat typing indicator"
+    git push origin main
+    ```
 
-General (repo root)
-- Install dependencies for both packages (run separately):
+  - Major (breaking change):
 
-```
-cd client
-npm install
+    ```bash
+    git commit -m "feat!: change message format to v2"
+    # or include a BREAKING CHANGE in the commit body
+    git push origin main
+    ```
 
-cd ../server
-npm install
-```
+  Repository layout
 
-Run the server
+  - `client/` — CLI client application and package.json
+  - `server/` — API server and related code
 
-```
-cd server
-npm start
-```
+  Contributing
 
-Run the CLI locally
+  - Fork and open a PR with a clear description of changes.
+  - Keep commits focused and use conventional commit-style messages when possible.
 
-```
-cd client
-npm start
-# or run the script directly: node src/server.js
-```
+  Useful links
 
-Release commands
-- Push your changes to `main` and the workflow will publish automatically.
+  - Client package: [client/package.json](client/package.json)
+  - Publish workflow: [.github/workflows/publish-client.yml](.github/workflows/publish-client.yml)
+  - CLI entry point: [client/src/server.js](client/src/server.js)
 
-Example:
+  License
 
-```
-git checkout main
-git merge your-branch
-git push origin main
-```
-
-Verification & debugging
-- After publishing, confirm the new version on npm:
-
-```
-npm view devtalk-cli version
-```
-
-- If a workflow run fails, inspect the Actions run logs; common issues are missing `NPM_TOKEN` or authentication errors with `gh` when running locally.
-
-Advanced suggestions (optional)
-- Enforce label requirement by adding a branch protection rule or a merge-check workflow that prevents merging without a release label.
-- Add PR templates that remind contributors to add a release label when opening PRs.
-
-If you want, I can add a PR template and a small `.github/labels.yml` recommendation file to create the suggested labels programmatically.
-
----
-
-File links
-- Workflow: [.github/workflows/publish-client.yml](.github/workflows/publish-client.yml)
-- Client package: [client/package.json](client/package.json)
-- CLI entry: [client/src/server.js](client/src/server.js)
+  This project is open source. See the `LICENSE` file if present.
+  ```
