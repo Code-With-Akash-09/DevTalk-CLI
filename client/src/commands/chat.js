@@ -124,7 +124,7 @@ module.exports = async () => {
 		width: "100%",
 		height: 3,
 		content:
-			" {bold}DevTalk-CLI{/bold}  {gray-fg}Realtime terminal chat{/gray-fg}\n {gray-fg}Esc{/gray-fg} quit  {gray-fg}Enter{/gray-fg} send  {gray-fg}Ctrl+L{/gray-fg} clear",
+			" {bold}DevTalk-CLI{/bold}  {gray-fg}Realtime terminal chat{/gray-fg}\n {gray-fg}Esc{/gray-fg} quit  {gray-fg}Ctrl+S{/gray-fg} send  {gray-fg}Ctrl+L{/gray-fg} clear",
 		tags: true,
 		border: {
 			type: "line",
@@ -159,20 +159,30 @@ module.exports = async () => {
 		},
 	});
 
-	const input = blessed.textbox({
+	const INPUT_MIN_HEIGHT = 4;
+	const INPUT_MAX_HEIGHT = 10;
+	const COMPOSER_PLACEHOLDER =
+		"Type a message. Press Enter to send.";
+	let composerShowingPlaceholder = false;
+
+	const input = blessed.textarea({
 		bottom: 3,
 		left: 0,
 		width: "100%",
-		height: 4,
+		height: INPUT_MIN_HEIGHT,
 		border: {
 			type: "line",
 		},
-		label: " Message ",
+		label: " Compose ",
 		inputOnFocus: true,
-		tags: true,
+		scrollable: true,
+		alwaysScroll: true,
+		tags: false,
 		keys: true,
+		vi: true,
 		mouse: true,
 		style: {
+			fg: "white",
 			border: {
 				fg: "green",
 			},
@@ -183,8 +193,6 @@ module.exports = async () => {
 			},
 		},
 	});
-
-	const PLACEHOLDER = "{gray-fg}enter your message here{/gray-fg}";
 
 	const status = blessed.box({
 		bottom: 0,
@@ -214,6 +222,7 @@ module.exports = async () => {
 	let socket = null;
 	let reconnectTimer = null;
 	let draftSaveTimer = null;
+	let composerResizeTimer = null;
 	let reconnectAttempt = 0;
 	let exiting = false;
 
@@ -231,10 +240,84 @@ module.exports = async () => {
 		}
 	};
 
-	const saveDraft = () => {
-		const value = String(input.getValue() || "").trim();
+	const clearComposerResizeTimer = () => {
+		if (composerResizeTimer) {
+			clearTimeout(composerResizeTimer);
+			composerResizeTimer = null;
+		}
+	};
 
-		if (value) {
+	const showComposerPlaceholder = () => {
+		if (composerShowingPlaceholder) {
+			return;
+		}
+
+		composerShowingPlaceholder = true;
+		input.style.fg = "gray";
+		input.setValue(COMPOSER_PLACEHOLDER);
+	};
+
+	const hideComposerPlaceholder = () => {
+		if (!composerShowingPlaceholder) {
+			return;
+		}
+
+		composerShowingPlaceholder = false;
+		input.style.fg = "white";
+		input.clearValue();
+	};
+
+	const getComposerValue = () =>
+		composerShowingPlaceholder ? "" : String(input.getValue() || "").replace(/\r\n/g, "\n");
+
+	const hasComposerText = () => Boolean(getComposerValue().trim());
+
+	const updateComposerPlaceholder = () => {
+		if (hasComposerText()) {
+			hideComposerPlaceholder();
+			return;
+		}
+
+		showComposerPlaceholder();
+	};
+
+	const measureComposerHeight = () => {
+		const innerHeight =
+			input._clines && input._clines.length ? input._clines.length : 1;
+		const maxHeight = Math.max(
+			INPUT_MIN_HEIGHT,
+			Math.min(
+				INPUT_MAX_HEIGHT,
+				Math.max(INPUT_MIN_HEIGHT, (screen.height || 24) - 11),
+			),
+		);
+
+		return Math.min(maxHeight, Math.max(INPUT_MIN_HEIGHT, innerHeight + 2));
+	};
+
+	const resizeComposer = () => {
+		const nextHeight = measureComposerHeight();
+		if (input.height !== nextHeight) {
+			input.height = nextHeight;
+		}
+		
+		messages.bottom = nextHeight + status.height;
+		updateComposerPlaceholder();
+		screen.render();
+	};
+
+	const refreshComposer = () => {
+		clearComposerResizeTimer();
+		composerResizeTimer = setTimeout(() => {
+			composerResizeTimer = null;
+			resizeComposer();
+		}, 0);
+	};
+
+	const saveDraft = () => {
+		const value = getComposerValue();
+
+		if (value.trim()) {
 			config.set(draftKey, value);
 			return;
 		}
@@ -289,7 +372,43 @@ module.exports = async () => {
 	const focusInput = () => {
 		input.focus();
 		screen.program.showCursor(true);
+		updateComposerPlaceholder();
 		screen.render();
+	};
+
+	const sendCurrentMessage = () => {
+		const raw = getComposerValue();
+		const text = stripTags(raw).trim();
+
+		if (!text) {
+			return false;
+		}
+
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+			appendLine(`{red-fg}${formatTime()} Cannot send: not connected{/red-fg}`);
+			focusInput();
+			return false;
+		}
+
+		try {
+			clearDraftTimer();
+			socket.send(JSON.stringify({ message: text }));
+			config.set(draftKey, "");
+			composerShowingPlaceholder = false;
+			showComposerPlaceholder();
+			updateComposerPlaceholder();
+			resizeComposer();
+			setStatus("{green-fg}Message sent{/green-fg}", "green");
+		} catch (error) {
+			appendLine(
+				`{red-fg}${formatTime()} Send failed: ${error.message || error}{/red-fg}`,
+			);
+			setStatus("{red-fg}Send failed{/red-fg}", "red");
+			return false;
+		}
+
+		focusInput();
+		return true;
 	};
 
 	const connect = () => {
@@ -396,6 +515,7 @@ module.exports = async () => {
 		exiting = true;
 		clearReconnectTimer();
 		clearDraftTimer();
+		clearComposerResizeTimer();
 		saveDraft();
 
 		try {
@@ -411,12 +531,20 @@ module.exports = async () => {
 		setTimeout(() => process.exit(exitCode), 150);
 	};
 
-	input.setValue(config.get(draftKey) || PLACEHOLDER);
-	screen.render();
+	const savedDraft = String(config.get(draftKey) || "");
+	if (savedDraft.trim()) {
+		composerShowingPlaceholder = false;
+		input.style.fg = "white";
+		input.setValue(savedDraft);
+	} else {
+		showComposerPlaceholder();
+	}
+	resizeComposer();
 	connect();
 
 	screen.key(["escape", "q", "C-c"], () => cleanup(0));
 	input.key(["C-c"], () => cleanup(0));
+	screen.key(["C-s"], () => sendCurrentMessage());
 
 	screen.key(["C-l"], () => {
 		messages.setContent("");
@@ -424,62 +552,67 @@ module.exports = async () => {
 		focusInput();
 	});
 
-	process.on("SIGINT", () => cleanup(0));
-
-	input.on("submit", (value) => {
-		const raw = String(value || "");
-		const text = stripTags(raw).trim();
-
-		if (!text || text === "enter your message here") {
-			input.clearValue();
-			focusInput();
-			return;
-		}
-
-		if (!socket || socket.readyState !== WebSocket.OPEN) {
-			appendLine(`{red-fg}${formatTime()} Cannot send: not connected{/red-fg}`);
-			focusInput();
-			return;
-		}
-
-		try {
-			socket.send(JSON.stringify({ message: text }));
-			config.set(draftKey, "");
-			setStatus("{green-fg}Message sent{/green-fg}", "green");
-		} catch (error) {
-			appendLine(
-				`{red-fg}${formatTime()} Send failed: ${error.message || error}{/red-fg}`,
-			);
-			setStatus("{red-fg}Send failed{/red-fg}", "red");
-		}
-
-		input.clearValue();
-		focusInput();
+	screen.on("resize", () => {
+		refreshComposer();
 	});
 
+	process.on("SIGINT", () => cleanup(0));
+
 	input.on("keypress", (ch, key) => {
-		const val = String(input.getValue() || "");
-		if (stripTags(val).trim() === "enter your message here") {
-			input.clearValue();
-			screen.render();
+		if (key && (key.name === "enter" || key.name === "return")) {
+			const sent = sendCurrentMessage();
+			if (sent) {
+				setTimeout(() => {
+					composerShowingPlaceholder = false;
+					showComposerPlaceholder();
+					updateComposerPlaceholder();
+					resizeComposer();
+				}, 0);
+			}
 			return;
 		}
 
+		if (key && key.ctrl && key.name === "s") {
+			return;
+		}
+
+		refreshComposer();
 		scheduleDraftSave();
 	});
 
 	input.on("blur", () => {
-		const val = String(input.getValue() || "");
-		if (!stripTags(val).trim()) {
-			input.setValue(config.get(draftKey) || PLACEHOLDER);
-			screen.render();
+		if (!hasComposerText()) {
+			showComposerPlaceholder();
 		}
+
+		refreshComposer();
+	});
+
+	input.on("focus", () => {
+		hideComposerPlaceholder();
+		refreshComposer();
 	});
 
 	focusInput();
 	setStatus(
-		"{yellow-fg}Ready{/yellow-fg} - type a message and press Enter",
+		"{yellow-fg}Ready{/yellow-fg} - Enter sends the message",
 		"yellow",
 	);
 	screen.render();
+
+	input.on("keypress", (ch, key) => {
+		if (!composerShowingPlaceholder) {
+			return;
+		}
+
+		if (!ch || (key && (key.ctrl || key.meta))) {
+			return;
+		}
+
+		if (key && (key.name === "enter" || key.name === "return")) {
+			return;
+		}
+
+		hideComposerPlaceholder();
+	});
 };
