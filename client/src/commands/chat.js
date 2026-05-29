@@ -164,6 +164,14 @@ module.exports = async () => {
 	const COMPOSER_PLACEHOLDER =
 		"Type a message. Press Enter to send.";
 	let composerShowingPlaceholder = false;
+	let presenceState = {
+		onlineUsers: [],
+		onlineCount: 0,
+		typingUsers: [],
+	};
+	let connectionStatus = "{yellow-fg}Connecting...{/yellow-fg}";
+	let typingTimer = null;
+	let typingActive = false;
 
 	const input = blessed.textarea({
 		bottom: 3,
@@ -173,7 +181,7 @@ module.exports = async () => {
 		border: {
 			type: "line",
 		},
-		label: " Compose ",
+		label: " Message ",
 		inputOnFocus: true,
 		scrollable: true,
 		alwaysScroll: true,
@@ -245,6 +253,91 @@ module.exports = async () => {
 			clearTimeout(composerResizeTimer);
 			composerResizeTimer = null;
 		}
+	};
+
+	const clearTypingTimer = () => {
+		if (typingTimer) {
+			clearTimeout(typingTimer);
+			typingTimer = null;
+		}
+	};
+
+	const sanitizeName = (name) => stripTags(String(name || "")).trim();
+
+	const getTypingUsers = () =>
+		presenceState.typingUsers
+			.map(sanitizeName)
+			.filter(Boolean)
+			.filter((name) => name !== currentUsername);
+
+	const getPresenceSummary = () => {
+		const onlineCount = presenceState.onlineCount || presenceState.onlineUsers.length;
+		const typingUsers = getTypingUsers();
+		const typingLabel = typingUsers.length
+			? `{gray-fg}Typing:{/gray-fg} {yellow-fg}${typingUsers.join(", ")}{/yellow-fg}`
+			: "{gray-fg}Typing:{/gray-fg} none";
+
+		return `{gray-fg}Online:{/gray-fg} {green-fg}${onlineCount}{/green-fg}  ${typingLabel}`;
+	};
+
+	const renderStatus = () => {
+		status.border.fg = status._borderColor || "magenta";
+		status.setContent(` ${connectionStatus}\n ${getPresenceSummary()}`);
+		screen.render();
+	};
+
+	const setStatus = (content, borderColor = "magenta") => {
+		connectionStatus = content;
+		status._borderColor = borderColor;
+		renderStatus();
+	};
+
+	const updatePresenceState = (nextState) => {
+		presenceState = {
+			onlineUsers: Array.isArray(nextState.onlineUsers) ? nextState.onlineUsers : [],
+			onlineCount:
+				typeof nextState.onlineCount === "number"
+					? nextState.onlineCount
+					: Array.isArray(nextState.onlineUsers)
+						? nextState.onlineUsers.length
+						: 0,
+			typingUsers: Array.isArray(nextState.typingUsers) ? nextState.typingUsers : [],
+		};
+		renderStatus();
+	};
+
+	const sendTypingState = (active) => {
+		if (typingActive === active) {
+			return;
+		}
+
+		typingActive = active;
+
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+			return;
+		}
+
+		try {
+			socket.send(JSON.stringify({ type: "typing", active }));
+		} catch (error) {}
+	};
+
+	const markTyping = () => {
+		if (composerShowingPlaceholder) {
+			return;
+		}
+
+		sendTypingState(true);
+		clearTypingTimer();
+		typingTimer = setTimeout(() => {
+			typingTimer = null;
+			sendTypingState(false);
+		}, 1200);
+	};
+
+	const stopTyping = () => {
+		clearTypingTimer();
+		sendTypingState(false);
 	};
 
 	const showComposerPlaceholder = () => {
@@ -333,12 +426,6 @@ module.exports = async () => {
 		}, 100);
 	};
 
-	const setStatus = (content, borderColor = "magenta") => {
-		status.border.fg = borderColor;
-		status.setContent(` ${content}`);
-		screen.render();
-	};
-
 	const appendLine = (content) => {
 		messages.log(content);
 		messages.setScrollPerc(100);
@@ -386,11 +473,13 @@ module.exports = async () => {
 
 		if (!socket || socket.readyState !== WebSocket.OPEN) {
 			appendLine(`{red-fg}${formatTime()} Cannot send: not connected{/red-fg}`);
+			stopTyping();
 			focusInput();
 			return false;
 		}
 
 		try {
+			stopTyping();
 			clearDraftTimer();
 			socket.send(JSON.stringify({ message: text }));
 			config.set(draftKey, "");
@@ -474,31 +563,46 @@ module.exports = async () => {
 			}
 
 			try {
-				const parsed = normalizeMessage(JSON.parse(data));
+				const parsed = JSON.parse(data);
+
+				if (parsed.type === "presence") {
+					updatePresenceState(parsed);
+					return;
+				}
+
+				if (parsed.type === "message") {
+					const rawMessage = String(parsed.message || "").trim();
+					if (!rawMessage) {
+						return;
+					}
+					parsed.message = rawMessage;
+				}
+
+				const normalized = normalizeMessage(parsed);
 				const timestamp = formatTime();
 
-				if (parsed.type === "system") {
-					appendLine(`{gray-fg}${timestamp} • ${parsed.message}{/gray-fg}`);
+				if (normalized.type === "system") {
+					appendLine(`{gray-fg}${timestamp} • ${normalized.message}{/gray-fg}`);
 					return;
 				}
 
-				if (parsed.type === "error") {
-					appendLine(`{red-fg}${timestamp} • ${parsed.message}{/red-fg}`);
+				if (normalized.type === "error") {
+					appendLine(`{red-fg}${timestamp} • ${normalized.message}{/red-fg}`);
 					return;
 				}
 
-				if (currentUsername && parsed.username === currentUsername) {
+				if (currentUsername && normalized.username === currentUsername) {
 					const prefix = `{gray-fg}${timestamp}{/gray-fg} {green-fg}You{/green-fg}: `;
 					appendWrappedMessage(
 						prefix,
-						parsed.message,
+						normalized.message,
 						stripTags(prefix).length,
 					);
 					return;
 				}
 
-				const prefix = `{gray-fg}${timestamp}{/gray-fg} {cyan-fg}${parsed.username}{/cyan-fg}: `;
-				appendWrappedMessage(prefix, parsed.message, stripTags(prefix).length);
+				const prefix = `{gray-fg}${timestamp}{/gray-fg} {cyan-fg}${normalized.username}{/cyan-fg}: `;
+				appendWrappedMessage(prefix, normalized.message, stripTags(prefix).length);
 			} catch (error) {
 				appendLine(
 					`{red-fg}${formatTime()} Failed to read message: ${error.message || error}{/red-fg}`,
@@ -516,6 +620,8 @@ module.exports = async () => {
 		clearReconnectTimer();
 		clearDraftTimer();
 		clearComposerResizeTimer();
+		clearTypingTimer();
+		sendTypingState(false);
 		saveDraft();
 
 		try {
@@ -560,6 +666,7 @@ module.exports = async () => {
 
 	input.on("keypress", (ch, key) => {
 		if (key && (key.name === "enter" || key.name === "return")) {
+			stopTyping();
 			const sent = sendCurrentMessage();
 			if (sent) {
 				setTimeout(() => {
@@ -576,6 +683,7 @@ module.exports = async () => {
 			return;
 		}
 
+		markTyping();
 		refreshComposer();
 		scheduleDraftSave();
 	});
@@ -585,6 +693,7 @@ module.exports = async () => {
 			showComposerPlaceholder();
 		}
 
+		stopTyping();
 		refreshComposer();
 	});
 
