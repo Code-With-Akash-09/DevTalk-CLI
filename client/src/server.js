@@ -1,10 +1,29 @@
 #!/usr/bin/env node
 const axios = require("axios");
+const chalkModule = require("chalk");
+const chalk =
+	chalkModule && chalkModule.default ? chalkModule.default : chalkModule;
 const { Command } = require("commander");
 const chat = require("./commands/chat");
 const login = require("./commands/login");
 const register = require("./commands/register");
 const { name, version } = require("../package.json");
+
+function printBanner() {
+	const logo = String.raw`
+ ██████╗ ███████╗██╗   ██╗████████╗ █████╗ ██╗     ██╗  ██╗
+ ██╔══██╗██╔════╝██║   ██║╚══██╔══╝██╔══██╗██║     ██║ ██╔╝
+ ██║  ██║█████╗  ██║   ██║   ██║   ███████║██║     █████╔╝
+ ██║  ██║██╔══╝  ╚██╗ ██╔╝   ██║   ██╔══██║██║     ██╔═██╗
+ ██████╔╝███████╗ ╚████╔╝    ██║   ██║  ██║███████╗██║  ██╗
+  ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+`;
+	console.log(chalk.cyanBright(logo));
+	console.log(chalk.bold("DevTalk CLI"));
+	console.log(
+		chalk.dim("Realtime terminal chat for fast team conversations\n"),
+	);
+}
 
 function compareVersions(currentVersion, latestVersion) {
 	const currentParts = currentVersion.split(".").map(Number);
@@ -44,6 +63,7 @@ async function checkForUpdates() {
 }
 
 async function main() {
+	printBanner();
 	await checkForUpdates();
 
 	const program = new Command();
