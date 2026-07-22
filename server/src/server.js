@@ -7,6 +7,7 @@ const WebSocket = require('ws')
 const { WebSocketServer } = require('ws')
 const { getDb, messagescoll } = require('./config/collection')
 const authRouter = require('./routes/auth')
+const roomsRouter = require('./routes/rooms')
 
 const app = express()
 
@@ -20,6 +21,7 @@ app.get("/health", (req, res) => {
 })
 
 app.use("/v1/auth", authRouter)
+app.use("/v1/rooms", roomsRouter)
 
 getDb()
 
