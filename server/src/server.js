@@ -5,7 +5,7 @@ const http = require('http')
 const jwt = require('jsonwebtoken')
 const WebSocket = require('ws')
 const { WebSocketServer } = require('ws')
-const { getDb, messagescoll } = require('./config/collection')
+const { getDb, messagescoll, ensureIndexes } = require('./config/collection')
 const authRouter = require('./routes/auth')
 const roomsRouter = require('./routes/rooms')
 
@@ -24,6 +24,7 @@ app.use("/v1/auth", authRouter)
 app.use("/v1/rooms", roomsRouter)
 
 getDb()
+ensureIndexes()
 
 const server = http.createServer(app)
 

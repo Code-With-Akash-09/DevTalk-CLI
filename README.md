@@ -74,6 +74,8 @@ devtalk-cli chat -r design
 - **Rooms are created automatically** the first time someone chats in them — no manual setup needed.
 - **Message history** is persisted in MongoDB. The last 50 messages in a room are shown when you join.
 - **All messages are scoped to a room** — messages in `#backend` won't appear in `#general`.
+- **Messages auto-expire after 24 hours** — chat history is ephemeral by design, powered by a MongoDB TTL index on `createdAt`.
+
 
 ---
 
