@@ -73,7 +73,7 @@ async function main() {
 
 	program.command("register").action(register);
 	program.command("login").action(login);
-	program.command("chat").action(chat);
+	program.command("chat").option("-r, --room <room>", "Room to join", "general").action(chat);
 
 	await program.parseAsync(process.argv);
 }

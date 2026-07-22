@@ -217,9 +217,7 @@ module.exports = async (options = {}) => {
 	screen.append(input);
 	screen.append(status);
 
-	const host = process.env.DEV_HOST || "devtalk-cli.onrender.com";
-	const protocol = process.env.DEV_HOST ? "ws" : "wss";
-	const wsUrl = process.env.WS_URL || `${protocol}://${host}?token=${token}&room=${encodeURIComponent(room)}`;
+	const wsUrl = `wss://devtalk-cli.onrender.com?token=${token}&room=${encodeURIComponent(room)}`;
 
 	let socket = null;
 	let reconnectTimer = null;
