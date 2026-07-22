@@ -123,28 +123,30 @@ module.exports = async (options = {}) => {
 		top: 0,
 		left: 0,
 		width: "100%",
-		height: 3,
+		height: 4,
 		content:
-			` {bold}DevTalk-CLI{/bold} #{room}  {gray-fg}Realtime terminal chat{/gray-fg}\n {gray-fg}Esc{/gray-fg} quit  {gray-fg}Ctrl+S{/gray-fg} send  {gray-fg}Ctrl+L{/gray-fg} clear`,
+			` {bold}{magenta-fg}▓▒░{/magenta-fg} {green-fg}DEVTALK-CLI{/green-fg} {magenta-fg}░▒▓{/magenta-fg}  {cyan-fg}#{room}{/cyan-fg}  {gray-fg}realtime encrypted comms{/gray-fg}\n {gray-fg}[ESC]{/gray-fg} exit  {gray-fg}[ENTER]{/gray-fg} send  {gray-fg}[CTRL+L]{/gray-fg} wipe  {gray-fg}[CTRL+S]{/gray-fg} transmit`,
 		tags: true,
 		border: {
 			type: "line",
 		},
 		style: {
+			bg: "black",
 			border: {
-				fg: "cyan",
+				fg: "magenta",
 			},
 		},
 	});
 
 	const messages = blessed.log({
-		top: 3,
+		top: 4,
 		left: 0,
 		width: "100%",
 		bottom: 7,
 		border: {
 			type: "line",
 		},
+		label: " {green-fg}◈{/green-fg} CHANNEL: #{room} {green-fg}◈{/green-fg} ",
 		tags: true,
 		keys: true,
 		vi: true,
@@ -154,8 +156,9 @@ module.exports = async (options = {}) => {
 		scrollback: 1000,
 		pad: 1,
 		style: {
+			bg: "black",
 			border: {
-				fg: "blue",
+				fg: "green",
 			},
 		},
 	});
@@ -163,7 +166,7 @@ module.exports = async (options = {}) => {
 	const INPUT_MIN_HEIGHT = 4;
 	const INPUT_MAX_HEIGHT = 10;
 	const COMPOSER_PLACEHOLDER =
-		"Type a message. Press Enter to send.";
+		">> jack in and transmit...";
 	let composerShowingPlaceholder = false;
 
 	const input = blessed.textarea({
@@ -174,22 +177,23 @@ module.exports = async (options = {}) => {
 		border: {
 			type: "line",
 		},
-		label: " Compose ",
+		label: " {magenta-fg}▶{/magenta-fg} TRANSMIT ",
 		inputOnFocus: true,
 		scrollable: true,
 		alwaysScroll: true,
-		tags: false,
+		tags: true,
 		keys: true,
 		vi: true,
 		mouse: true,
 		style: {
-			fg: "white",
+			fg: "green",
+			bg: "black",
 			border: {
-				fg: "green",
+				fg: "magenta",
 			},
 			focus: {
 				border: {
-					fg: "yellow",
+					fg: "cyan",
 				},
 			},
 		},
@@ -200,14 +204,15 @@ module.exports = async (options = {}) => {
 		left: 0,
 		width: "100%",
 		height: 3,
-		content: " {yellow-fg}Connecting...{/yellow-fg}",
+		content: " {yellow-fg}◉ INITIALIZING...{/yellow-fg}",
 		tags: true,
 		border: {
 			type: "line",
 		},
 		style: {
+			bg: "black",
 			border: {
-				fg: "magenta",
+				fg: "yellow",
 			},
 		},
 	});
@@ -216,6 +221,38 @@ module.exports = async (options = {}) => {
 	screen.append(messages);
 	screen.append(input);
 	screen.append(status);
+
+	// ── Responsive layout ──────────────────────────────────────────────
+	const getHeaderContent = (w) => {
+		if (w < 50) {
+			return ` {green-fg}DEVTALK{/green-fg} {cyan-fg}#${room}{/cyan-fg}\n {gray-fg}[ESC]{/gray-fg} exit  {gray-fg}[ENTER]{/gray-fg} send`;
+		}
+		if (w < 80) {
+			return ` {green-fg}DEVTALK-CLI{/green-fg} {cyan-fg}#${room}{/cyan-fg}\n {gray-fg}[ESC]{/gray-fg} exit  {gray-fg}[ENTER]{/gray-fg} send  {gray-fg}[CTRL+L]{/gray-fg} wipe`;
+		}
+		return ` {bold}{magenta-fg}▓▒░{/magenta-fg} {green-fg}DEVTALK-CLI{/green-fg} {magenta-fg}░▒▓{/magenta-fg}  {cyan-fg}#${room}{/cyan-fg}  {gray-fg}realtime encrypted comms{/gray-fg}\n {gray-fg}[ESC]{/gray-fg} exit  {gray-fg}[ENTER]{/gray-fg} send  {gray-fg}[CTRL+L]{/gray-fg} wipe  {gray-fg}[CTRL+S]{/gray-fg} transmit`;
+	};
+
+	const getMessagesLabel = (w) => {
+		if (w < 50) return ` #${room} `;
+		if (w < 80) return ` ${room} `;
+		return ` {green-fg}◈{/green-fg} CHANNEL: #${room} {green-fg}◈{/green-fg} `;
+	};
+
+	const getInputLabel = (w) => {
+		if (w < 50) return " TX ";
+		if (w < 80) return " TRANSMIT ";
+		return " {magenta-fg}▶{/magenta-fg} TRANSMIT ";
+	};
+
+	const updateLayout = () => {
+		const w = screen.width || 80;
+		header.setContent(getHeaderContent(w));
+		messages.setLabel(getMessagesLabel(w));
+		input.setLabel(getInputLabel(w));
+		screen.render();
+	};
+	// ───────────────────────────────────────────────────────────────────
 
 	const wsUrl = `wss://devtalk-cli.onrender.com?token=${token}&room=${encodeURIComponent(room)}`;
 
@@ -253,7 +290,7 @@ module.exports = async (options = {}) => {
 		}
 
 		composerShowingPlaceholder = true;
-		input.style.fg = "gray";
+		input.style.fg = "#1a4a1a";
 		input.setValue(COMPOSER_PLACEHOLDER);
 	};
 
@@ -263,7 +300,7 @@ module.exports = async (options = {}) => {
 		}
 
 		composerShowingPlaceholder = false;
-		input.style.fg = "white";
+		input.style.fg = "green";
 		input.clearValue();
 	};
 
@@ -335,7 +372,7 @@ module.exports = async (options = {}) => {
 
 	const setStatus = (content, borderColor = "magenta") => {
 		status.border.fg = borderColor;
-		status.setContent(` ${content}`);
+		status.setContent(` ◉ ${content}`);
 		screen.render();
 	};
 
@@ -398,12 +435,12 @@ module.exports = async (options = {}) => {
 			showComposerPlaceholder();
 			updateComposerPlaceholder();
 			resizeComposer();
-			setStatus("{green-fg}Message sent{/green-fg}", "green");
+			setStatus("{green-fg}✓ TRANSMISSION SENT{/green-fg}", "green");
 		} catch (error) {
 			appendLine(
 				`{red-fg}${formatTime()} Send failed: ${error.message || error}{/red-fg}`,
 			);
-			setStatus("{red-fg}Send failed{/red-fg}", "red");
+			setStatus("{red-fg}✖ TRANSMISSION FAILED{/red-fg}", "red");
 			return false;
 		}
 
@@ -415,8 +452,8 @@ module.exports = async (options = {}) => {
 		clearReconnectTimer();
 		setStatus(
 			reconnectAttempt > 0
-				? `{yellow-fg}Reconnecting{/yellow-fg} attempt ${reconnectAttempt}...`
-				: "{yellow-fg}Connecting...{/yellow-fg}",
+				? `{yellow-fg}⚡ REROUTING{/yellow-fg} attempt ${reconnectAttempt}...`
+				: "{magenta-fg}>> ESTABLISHING UPLINK...{/magenta-fg}",
 			reconnectAttempt > 0 ? "yellow" : "magenta",
 		);
 
@@ -430,9 +467,9 @@ module.exports = async (options = {}) => {
 
 			const wasReconnecting = reconnectAttempt > 0;
 			reconnectAttempt = 0;
-			setStatus(`{green-fg}Connected{/green-fg} to #${room}`, "green");
+			setStatus(`{green-fg}UPLINK ESTABLISHED{/green-fg} · #{room}`, "green");
 			appendLine(
-				`{green-fg}${formatTime()} ${wasReconnecting ? "Reconnected" : "Connected"} to #${room}{/green-fg}`,
+				`{green-fg}[${formatTime()}] ◈ ${wasReconnecting ? "RECONNECTED" : "CONNECTED"} TO #${room} ◈{/green-fg}`,
 			);
 		});
 
@@ -441,9 +478,9 @@ module.exports = async (options = {}) => {
 				return;
 			}
 
-			setStatus("{red-fg}Connection error{/red-fg}", "red");
+			setStatus("{red-fg}✖ UPLINK FAILURE{/red-fg}", "red");
 			appendLine(
-				`{red-fg}${formatTime()} WebSocket error: ${err.message || err}{/red-fg}`,
+				`{red-fg}[${formatTime()}] ✖ SIGNAL LOST: ${err.message || err}{/red-fg}`,
 			);
 		});
 
@@ -452,11 +489,11 @@ module.exports = async (options = {}) => {
 				return;
 			}
 
-			setStatus(`{yellow-fg}Disconnected{/yellow-fg} (code ${code})`, "yellow");
+			setStatus(`{yellow-fg}⚡ UPLINK DROPPED{/yellow-fg} (code ${code})`, "yellow");
 			appendLine(
-				`{yellow-fg}${formatTime()} Disconnected (code=${code}){/yellow-fg}`,
+				`{yellow-fg}[${formatTime()}] ⚡ DISCONNECTED (code=${code}){/yellow-fg}`,
 			);
-			appendLine("{yellow-fg}Reconnecting automatically...{/yellow-fg}");
+			appendLine("{yellow-fg}>> AUTO-RECONNECT ENGAGED...{/yellow-fg}");
 
 			reconnectAttempt += 1;
 			const delay = Math.min(1000 * 2 ** (reconnectAttempt - 1), 10000);
@@ -476,19 +513,18 @@ module.exports = async (options = {}) => {
 			try {
 				const rawParsed = JSON.parse(data);
 
+
 				if (rawParsed && rawParsed.type === "history" && Array.isArray(rawParsed.messages)) {
-					appendLine(`{gray-fg}--- Recent History for #${rawParsed.room || room} ---{/gray-fg}`);
 					for (const item of rawParsed.messages) {
 						const t = formatTime(item.createdAt ? new Date(item.createdAt) : new Date());
 						if (currentUsername && item.username === currentUsername) {
-							const prefix = `{gray-fg}${t}{/gray-fg} {green-fg}You{/green-fg}: `;
+							const prefix = `{gray-fg}[${t}]{/gray-fg} {green-fg}YOU ▶{/green-fg} `;
 							appendWrappedMessage(prefix, item.message, stripTags(prefix).length);
 						} else {
-							const prefix = `{gray-fg}${t}{/gray-fg} {cyan-fg}${item.username}{/cyan-fg}: `;
+							const prefix = `{gray-fg}[${t}]{/gray-fg} {cyan-fg}${item.username} ▶{/cyan-fg} `;
 							appendWrappedMessage(prefix, item.message, stripTags(prefix).length);
 						}
 					}
-					appendLine(`{gray-fg}--- End of History ---{/gray-fg}`);
 					return;
 				}
 
@@ -496,17 +532,17 @@ module.exports = async (options = {}) => {
 				const timestamp = formatTime();
 
 				if (parsed.type === "system") {
-					appendLine(`{gray-fg}${timestamp} • ${parsed.message}{/gray-fg}`);
+					appendLine(`{gray-fg}[${timestamp}] ── SYS: ${parsed.message} ──{/gray-fg}`);
 					return;
 				}
 
 				if (parsed.type === "error") {
-					appendLine(`{red-fg}${timestamp} • ${parsed.message}{/red-fg}`);
+					appendLine(`{red-fg}[${timestamp}] ✖ ERR: ${parsed.message}{/red-fg}`);
 					return;
 				}
 
 				if (currentUsername && parsed.username === currentUsername) {
-					const prefix = `{gray-fg}${timestamp}{/gray-fg} {green-fg}You{/green-fg}: `;
+					const prefix = `{gray-fg}[${timestamp}]{/gray-fg} {green-fg}YOU ▶{/green-fg} `;
 					appendWrappedMessage(
 						prefix,
 						parsed.message,
@@ -515,7 +551,7 @@ module.exports = async (options = {}) => {
 					return;
 				}
 
-				const prefix = `{gray-fg}${timestamp}{/gray-fg} {cyan-fg}${parsed.username}{/cyan-fg}: `;
+				const prefix = `{gray-fg}[${timestamp}]{/gray-fg} {magenta-fg}${parsed.username} ▶{/magenta-fg} `;
 				appendWrappedMessage(prefix, parsed.message, stripTags(prefix).length);
 			} catch (error) {
 				appendLine(
@@ -558,6 +594,7 @@ module.exports = async (options = {}) => {
 		showComposerPlaceholder();
 	}
 	resizeComposer();
+	updateLayout();
 	connect();
 
 	screen.key(["escape", "q", "C-c"], () => cleanup(0));
@@ -566,11 +603,12 @@ module.exports = async (options = {}) => {
 
 	screen.key(["C-l"], () => {
 		messages.setContent("");
-		appendLine("{center}{gray-fg}Chat history cleared{/gray-fg}{/center}");
+		appendLine("{center}{magenta-fg}▓▒░ MEMORY WIPED ░▒▓{/magenta-fg}{/center}");
 		focusInput();
 	});
 
 	screen.on("resize", () => {
+		updateLayout();
 		refreshComposer();
 	});
 
@@ -613,8 +651,8 @@ module.exports = async (options = {}) => {
 
 	focusInput();
 	setStatus(
-		"{yellow-fg}Ready{/yellow-fg} - Enter sends the message",
-		"yellow",
+		"{green-fg}◈ SYSTEM READY{/green-fg} · ENTER transmits · ESC to disconnect",
+		"green",
 	);
 	screen.render();
 
