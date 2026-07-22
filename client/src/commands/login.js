@@ -29,8 +29,9 @@ module.exports = async () => {
 	}
 
 	try {
+		const baseUrl = process.env.API_URL || (process.env.DEV_HOST ? `http://${process.env.DEV_HOST}` : "https://devtalk-cli.onrender.com");
 		const response = await axios.post(
-			"https://devtalk-cli.onrender.com/v1/auth/login",
+			`${baseUrl}/v1/auth/login`,
 			answers,
 		);
 

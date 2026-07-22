@@ -10,4 +10,9 @@ async function userscoll() {
     return db.collection('users')
 }
 
-module.exports = { getDb, userscoll }
+async function messagescoll() {
+    const db = await getDb()
+    return db.collection('messages')
+}
+
+module.exports = { getDb, userscoll, messagescoll }

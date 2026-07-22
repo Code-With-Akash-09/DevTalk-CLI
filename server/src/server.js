@@ -5,7 +5,7 @@ const http = require('http')
 const jwt = require('jsonwebtoken')
 const WebSocket = require('ws')
 const { WebSocketServer } = require('ws')
-const { getDb } = require('./config/collection')
+const { getDb, messagescoll } = require('./config/collection')
 const authRouter = require('./routes/auth')
 
 const app = express()
@@ -29,34 +29,59 @@ const wss = new WebSocketServer({ server })
 
 const clients = new Map()
 
-wss.on("connection", (ws, req) => {
-    const params = new URLSearchParams(req.url.replace("/?", ""))
+wss.on("connection", async (ws, req) => {
+    const params = new URLSearchParams(req.url.replace(/^.*\?/, ""))
 
     const token = params.get("token")
+    const room = params.get("room") || "general"
 
     try {
         const user = jwt.verify(token, process.env.JWT_SECRET)
-        clients.set(ws, user)
+        clients.set(ws, { ...user, room })
 
-        broadcast({
+        // Fetch recent messages for room from MongoDB
+        try {
+            const collection = await messagescoll()
+            const history = await collection.find({ room }).sort({ createdAt: -1 }).limit(50).toArray()
+            history.reverse()
+            ws.send(JSON.stringify({ type: "history", room, messages: history }))
+        } catch (dbErr) {
+            console.error("Failed to fetch chat history:", dbErr.message)
+        }
+
+        broadcastInRoom(room, {
             type: "system",
-            message: `${user.username} joined the chat`,
+            room,
+            message: `${user.username} joined #${room}`,
         })
 
-        console.log(`WS: ${user.username} connected from ${req.socket.remoteAddress}`)
+        console.log(`WS: ${user.username} connected to #${room} from ${req.socket.remoteAddress}`)
 
-        ws.on("message", (message) => {
+        ws.on("message", async (message) => {
             try {
                 const parsed = JSON.parse(message)
+                const text = parsed.message
 
-                broadcast({
+                const msgObj = {
                     type: "message",
                     username: user.username,
-                    message: parsed.message,
-                })
+                    room,
+                    message: text,
+                    createdAt: new Date(),
+                }
+
+                // Persist to MongoDB
+                try {
+                    const collection = await messagescoll()
+                    const res = await collection.insertOne(msgObj)
+                    console.log(`DB Persisted message from ${user.username} (id: ${res.insertedId})`)
+                } catch (dbErr) {
+                    console.error("Failed to persist message:", dbErr.message)
+                }
+
+                broadcastInRoom(room, msgObj)
             } catch (err) {
                 console.error('WS message parse error for', user.username, err.message)
-                // notify the sender but do not close the socket
                 try {
                     ws.send(JSON.stringify({ type: 'error', message: 'invalid message format' }))
                 } catch (sendErr) {
@@ -68,22 +93,23 @@ wss.on("connection", (ws, req) => {
         ws.on("close", () => {
             clients.delete(ws)
 
-            broadcast({
+            broadcastInRoom(room, {
                 type: "system",
-                message: `${user.username} left the chat`,
+                room,
+                message: `${user.username} left #${room}`,
             })
-            console.log(`WS: ${user.username} disconnected`)
+            console.log(`WS: ${user.username} disconnected from #${room}`)
         })
     } catch (error) {
         ws.close()
     }
 })
 
-function broadcast(data) {
+function broadcastInRoom(room, data) {
     const message = JSON.stringify(data)
 
-    for (const client of clients.keys()) {
-        if (client.readyState === WebSocket.OPEN) {
+    for (const [client, info] of clients.entries()) {
+        if (info.room === room && client.readyState === WebSocket.OPEN) {
             client.send(message)
         }
     }

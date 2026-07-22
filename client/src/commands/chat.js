@@ -98,8 +98,9 @@ function stripTags(text) {
 	return String(text || "").replace(/\{[^{}]+\}/g, "");
 }
 
-module.exports = async () => {
+module.exports = async (options = {}) => {
 	const token = config.get("token");
+	const room = options.room || "general";
 	const tokenPayload = decodeTokenPayload(token);
 	const currentUsername =
 		tokenPayload && tokenPayload.username ? tokenPayload.username : null;
@@ -114,7 +115,7 @@ module.exports = async () => {
 
 	const screen = blessed.screen({
 		smartCSR: true,
-		title: "DevTalk-CLI",
+		title: `DevTalk-CLI - #${room}`,
 		fullUnicode: true,
 	});
 
@@ -124,7 +125,7 @@ module.exports = async () => {
 		width: "100%",
 		height: 3,
 		content:
-			" {bold}DevTalk-CLI{/bold}  {gray-fg}Realtime terminal chat{/gray-fg}\n {gray-fg}Esc{/gray-fg} quit  {gray-fg}Ctrl+S{/gray-fg} send  {gray-fg}Ctrl+L{/gray-fg} clear",
+			` {bold}DevTalk-CLI{/bold} #{room}  {gray-fg}Realtime terminal chat{/gray-fg}\n {gray-fg}Esc{/gray-fg} quit  {gray-fg}Ctrl+S{/gray-fg} send  {gray-fg}Ctrl+L{/gray-fg} clear`,
 		tags: true,
 		border: {
 			type: "line",
@@ -216,8 +217,9 @@ module.exports = async () => {
 	screen.append(input);
 	screen.append(status);
 
-	const defaultHost = process.env.DEV_HOST || "devtalk-cli.onrender.com";
-	const wsUrl = process.env.WS_URL || `wss://${defaultHost}?token=${token}`;
+	const host = process.env.DEV_HOST || "devtalk-cli.onrender.com";
+	const protocol = process.env.DEV_HOST ? "ws" : "wss";
+	const wsUrl = process.env.WS_URL || `${protocol}://${host}?token=${token}&room=${encodeURIComponent(room)}`;
 
 	let socket = null;
 	let reconnectTimer = null;
@@ -430,9 +432,9 @@ module.exports = async () => {
 
 			const wasReconnecting = reconnectAttempt > 0;
 			reconnectAttempt = 0;
-			setStatus("{green-fg}Connected{/green-fg} to chat", "green");
+			setStatus(`{green-fg}Connected{/green-fg} to #${room}`, "green");
 			appendLine(
-				`{green-fg}${formatTime()} ${wasReconnecting ? "Reconnected" : "Connected"} to server{/green-fg}`,
+				`{green-fg}${formatTime()} ${wasReconnecting ? "Reconnected" : "Connected"} to #${room}{/green-fg}`,
 			);
 		});
 
@@ -474,7 +476,25 @@ module.exports = async () => {
 			}
 
 			try {
-				const parsed = normalizeMessage(JSON.parse(data));
+				const rawParsed = JSON.parse(data);
+
+				if (rawParsed && rawParsed.type === "history" && Array.isArray(rawParsed.messages)) {
+					appendLine(`{gray-fg}--- Recent History for #${rawParsed.room || room} ---{/gray-fg}`);
+					for (const item of rawParsed.messages) {
+						const t = formatTime(item.createdAt ? new Date(item.createdAt) : new Date());
+						if (currentUsername && item.username === currentUsername) {
+							const prefix = `{gray-fg}${t}{/gray-fg} {green-fg}You{/green-fg}: `;
+							appendWrappedMessage(prefix, item.message, stripTags(prefix).length);
+						} else {
+							const prefix = `{gray-fg}${t}{/gray-fg} {cyan-fg}${item.username}{/cyan-fg}: `;
+							appendWrappedMessage(prefix, item.message, stripTags(prefix).length);
+						}
+					}
+					appendLine(`{gray-fg}--- End of History ---{/gray-fg}`);
+					return;
+				}
+
+				const parsed = normalizeMessage(rawParsed);
 				const timestamp = formatTime();
 
 				if (parsed.type === "system") {
