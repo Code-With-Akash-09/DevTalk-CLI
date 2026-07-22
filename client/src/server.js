@@ -7,6 +7,7 @@ const { Command } = require("commander");
 const chat = require("./commands/chat");
 const login = require("./commands/login");
 const register = require("./commands/register");
+const rooms = require("./commands/rooms");
 const { name, version } = require("../package.json");
 
 function printBanner() {
@@ -73,6 +74,7 @@ async function main() {
 
 	program.command("register").action(register);
 	program.command("login").action(login);
+	program.command("rooms").description("List all available rooms").action(rooms);
 	program.command("chat").option("-r, --room <room>", "Room to join", "general").action(chat);
 
 	await program.parseAsync(process.argv);
